@@ -20,7 +20,7 @@ func main() {
 	redisHost := getEnv("REDIS", "localhost:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "")
 	redisDB := getEnv("REDIS_DB", "0")
-	postgresHost := getEnv("POSTGRES", "localhost")
+	postgresHost := getEnv("POSTGRES", "127.0.0.1")
 	postgresPort := getEnv("POSTGRES_PORT", "5432")
 	postgresUser := getEnv("POSTGRES_USER", "postgres")
 	postgresPassword := getEnv("POSTGRES_PASSWORD", "postgres")
@@ -45,6 +45,11 @@ func main() {
 
 	log.Println("Worker started")
 
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS votes (id SERIAL PRIMARY KEY, voter_id VARCHAR(255) NOT NULL, vote VARCHAR(255) NOT NULL)")
+	if err != nil {
+		log.Fatalf("Error creating votes table: %v", err)
+	}
+
 	for {
 		vote, err := rdb.BLPop(0, "votes").Result()
 		if err != nil {
@@ -67,7 +72,9 @@ func main() {
 			continue
 		}
 
-		_, err = tx.Exec("INSERT INTO votes (vote_id, voter_id, vote) VALUES (nextval('votes_sequence'), $1, $2)", voteData.VoterID, voteData.Vote)
+		//id := 1
+		_, err = db.Exec("INSERT INTO votes (voter_id, vote) VALUES ($1, $2)", voteData.VoterID, voteData.Vote)
+		//_, err = tx.Exec("INSERT INTO votes (id, voter_id, vote) VALUES, $1, $2, $3)", id, voteData.VoterID, voteData.Vote)
 		if err != nil {
 			_ = tx.Rollback()
 			log.Printf("Error inserting vote: %v", err)
